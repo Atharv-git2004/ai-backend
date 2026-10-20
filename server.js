@@ -26,8 +26,8 @@ if (process.env.MONGO_URI) {
 // Initialize Gemini API
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
-// Active supported models prioritized for ultra-low latency & responsiveness
-const FAST_MODELS = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"];
+// Active supported Official Gemini Models prioritized for ultra-low latency & responsiveness
+const FAST_MODELS = ["gemini-1.5-flash", "gemini-1.5-pro"];
 
 // Helper to detect language script
 function detectLanguage(text) {
@@ -96,24 +96,23 @@ function pcmToWav(pcmBase64, sampleRate = 24000, numChannels = 1) {
   return Buffer.concat([wavHeader, pcmBuffer]).toString("base64");
 }
 
-// Optional Fast Gemini TTS generation (with strict timeout so it never causes lag)
+// Optional Fast Gemini TTS generation
 async function tryGenerateNativeVoice(text, emotion = "warm and friendly") {
   try {
     const key = process.env.GEMINI_API_KEY;
     if (!key) return null;
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash-lite-tts:generateContent?key=${key}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
     const ttsPrompt = `Speak naturally with a ${emotion} conversational human tone:${text}`;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 1800);
+    const timeout = setTimeout(() => controller.abort(), 2500);
 
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ text: ttsPrompt }] }],
-        generationConfig: { responseModalities: ["AUDIO"] },
       }),
       signal: controller.signal,
     });
@@ -127,7 +126,7 @@ async function tryGenerateNativeVoice(text, emotion = "warm and friendly") {
       }
     }
   } catch {
-    // Non-blocking fallback to instant browser speech synthesis
+    // Non-blocking fallback to browser speech synthesis
   }
   return null;
 }
@@ -143,7 +142,7 @@ app.post("/api/chat", async (req, res) => {
     }
 
     if (!process.env.GEMINI_API_KEY) {
-      return res.status(400).json({ error: "Please set GEMINI_API_KEY in backend/.env" });
+      return res.status(400).json({ error: "Please set GEMINI_API_KEY in environment variables" });
     }
 
     const trimmedMsg = message.trim();
@@ -181,7 +180,7 @@ LATENCY & VOICE CONCISENESS (MANDATORY):
         const model = genAI.getGenerativeModel({
           model: modelName,
           generationConfig: {
-            maxOutputTokens: 90,
+            maxOutputTokens: 120,
             temperature: 0.7,
           },
         });
